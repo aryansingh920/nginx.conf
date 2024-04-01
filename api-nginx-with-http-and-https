@@ -1,0 +1,71 @@
+ubuntu@web-frontend:/etc/nginx$ cat nginx.conf 
+user www-data;
+worker_processes auto;
+error_log /var/log/nginx/error.log;
+pid /run/nginx.pid;
+
+# Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+include /usr/share/nginx/modules/*.conf;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile            on;
+    tcp_nopush          on;
+    tcp_nodelay         on;
+    keepalive_timeout   65;
+    types_hash_max_size 4096;
+
+    include             /etc/nginx/mime.types;
+    default_type        application/octet-stream;
+
+    # Map the domain name to a variable
+    map $http_host $domain_name {
+        default web.canverro.com;
+        ~^web\.(?<domain>.+)$ $domain;
+    }
+
+    # Redirect HTTP traffic for canverro.com to web.canverro.com
+    server {
+        listen 80;
+        listen [::]:80;
+        server_name canverro.com;
+
+        # Redirect to web.canverro.com
+        return 301 http://web.canverro.com$request_uri;
+    }
+
+    server {
+        listen 80;
+        listen [::]:80;
+        server_name web.canverro.com;
+
+        # Redirect all HTTP traffic to HTTPS with web
+        return 301 https://web.canverro.com$request_uri;
+    }
+
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+        server_name canverro.com web.canverro.com;
+
+        ssl_certificate certificate.crt;
+        ssl_certificate_key private.key;
+
+        # SSL configurations go here...
+
+        # Your server configurations...
+        location / {
+            proxy_pass http://localhost:3000;
+            # Additional proxy settings if needed
+        }
+    }
+}
